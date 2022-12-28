@@ -1,4 +1,5 @@
 import os
+import re
 from typing import List
 
 import discord
@@ -12,6 +13,10 @@ openai.api_key = os.environ["OPENAI_API_KEY"]
 intents = discord.Intents.default()
 intents.message_content = True
 client = discord.Client(intents=intents)
+
+# Regex patterns
+angle_brackets = re.compile(r"[<>]")
+whitespace = re.compile(r"[\n\t\s]+")
 
 
 @client.event
@@ -58,13 +63,19 @@ def normalize_username(user: discord.Member) -> str:
     if user == client.user:
         return "Penny"
 
-    return user.display_name.replace(">", "").replace("<", "")
+    # Remove angle brackets from the user's display name
+    return angle_brackets.sub("", user.display_name)
 
 
 async def generate_response(message: discord.Message) -> str:
 
     # Build the prompt
-    intro = f'The following is a conversation in a chatroom called "{message.channel.name}". Penny is a cutesy, cheerful, helpful assistant who often greets members with "Salutations!".'
+    intro = f"""
+        The following is a conversation in a chatroom called "{message.channel.name}".
+        The date is {message.created_at:%Y-%m-%d}. Penny is a cutesy, cheerful, helpful
+        assistant who often uses the word "salutations" when greeting people.
+    """
+    intro = whitespace.sub(" ", intro).strip()
     messages = await follow_message_chain(message, 9)
     messages = [
         f"<{normalize_username(m.author)}>\n{m.clean_content.strip()}" for m in messages
