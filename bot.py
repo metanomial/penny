@@ -152,13 +152,14 @@ async def generate_response(messages: List[discord.Message]) -> str:
     if len(messages) > 0:
         intro += f'The following is a conversation in a chatroom called "{messages[0].channel.name}". '
     intro += f"The date and time is {datetime.now():%Y-%m-%d %H:%M:%S}. "
-    intro += 'Penny is a cutesy, cheerful, helpful assistant who often uses the word "salutations" when greeting people.'
+    intro += "Penny is a cutesy, cheerful, and helpful assistant. "
+    intro += 'Her favorite greeting is "Salutations!".'
     conversation = format_messages(messages)
-    prompt = f"{intro}\n\n{conversation}<Penny>\n"
+    prompt = f"{intro}\n\n{conversation}\n\n<Penny>\n"
 
     # Query the OpenAI API
     completion = openai.Completion.create(
-        engine="text-curie-001",
+        engine="text-davinci-001",
         prompt=prompt,
         max_tokens=150,
         temperature=0.9,
@@ -180,7 +181,7 @@ async def generate_thread_name(messages: List[discord.Message]) -> str:
 
     # Query the OpenAI API
     completion = openai.Completion.create(
-        engine="text-curie-001",
+        engine="text-davinci-001",
         prompt=prompt,
         max_tokens=15,
         temperature=0.9,
