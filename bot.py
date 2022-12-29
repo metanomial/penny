@@ -8,6 +8,7 @@ from typing import List
 
 import discord
 import openai
+import pytz
 
 # Configure OpenAI
 openai.organization = os.environ["OPENAI_ORGANIZATION"]
@@ -151,7 +152,7 @@ async def generate_response(messages: List[discord.Message]) -> str:
     intro = ""
     if len(messages) > 0:
         intro += f'The following is a conversation in a chatroom called "{messages[0].channel.name}". '
-    intro += f"The date and time is {datetime.now():%Y-%m-%d %H:%M:%S}. "
+    intro += f"The date and time is {pt_datetime()}. "
     intro += "Penny is a cutesy, cheerful, and helpful assistant. "
     intro += 'Her favorite greeting is "Salutations!".'
     conversation = format_messages(messages)
@@ -174,7 +175,7 @@ async def generate_thread_name(messages: List[discord.Message]) -> str:
 
     # Build the prompt
     intro = "The following is a conversation in a chatroom. "
-    intro += f"The date and time is {datetime.now():%Y-%m-%d %H:%M:%S}. "
+    intro += f"The date and time is {pt_datetime()}. "
     intro += "Come up with a single short name for this thread."
     conversation = format_messages(messages)
     prompt = f"{intro}\n\n{conversation}\nThis thread should be called:"
@@ -190,6 +191,14 @@ async def generate_thread_name(messages: List[discord.Message]) -> str:
     )
 
     return completion.choices[0].text.strip()
+
+
+def pt_datetime() -> str:
+    """Returns the current date and time in the Pacific Time Zone."""
+
+    now = datetime.now()
+    pt = pytz.timezone("America/Los_Angeles")
+    return now.astimezone(pt).strftime("%B %d, %Y %I:%M:%S %p Pacific Time")
 
 
 if __name__ == "__main__":

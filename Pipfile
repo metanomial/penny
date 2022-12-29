@@ -6,6 +6,7 @@ name = "pypi"
 [packages]
 openai = "~=0.25.0"
 "discord.py" = "~=2.1.0"
+pytz = "*"
 
 [dev-packages]
 black = "~=22.12.0"
