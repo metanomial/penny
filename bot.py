@@ -88,9 +88,11 @@ async def pennythread_command(interaction: discord.Interaction):
         return
 
     # If the bot is not allowed to create threads, tell the user
-    if not interaction.channel.permissions_for(interaction.guild.me).manage_threads:
+    if not interaction.channel.permissions_for(
+        interaction.guild.me
+    ).create_public_threads:
         await interaction.response.send_message(
-            "Apologies, I do not have permission to create threads in this channel.",
+            "Apologies, I do not have permission to create public threads in this channel.",
             ephemeral=True,
         )
         return
@@ -172,7 +174,7 @@ async def generate_thread_name(messages: List[discord.Message]) -> str:
     # Build the prompt
     intro = "The following is a conversation in a chatroom. "
     intro += f"The date and time is {datetime.now():%Y-%m-%d %H:%M:%S}. "
-    intro += "Come up with a single name for this thread."
+    intro += "Come up with a single short name for this thread."
     conversation = format_messages(messages)
     prompt = f"{intro}\n\n{conversation}\nThis thread should be called:"
 
@@ -180,10 +182,10 @@ async def generate_thread_name(messages: List[discord.Message]) -> str:
     completion = openai.Completion.create(
         engine="text-curie-001",
         prompt=prompt,
-        max_tokens=6,
+        max_tokens=15,
         temperature=0.9,
         presence_penalty=0.6,
-        stop=["\n<"],
+        stop=["\n"],
     )
 
     return completion.choices[0].text.strip()
