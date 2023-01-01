@@ -1,66 +1,45 @@
 import logging
 import os
-import re
-from datetime import datetime
-from typing import Optional
 
 import aiohttp
 import openai
-import pytz
-from discord import Message, User
 from openai import Completion, Image
-
-ANGLE_BRACKETS = re.compile(r"[<>]")
-PENNY_THREAD_NAME = os.getenv("PENNY_THREAD_NAME", "pennythread")
 
 # Configure OpenAI
 openai.organization = os.environ["OPENAI_ORGANIZATION"]
 openai.api_key = os.environ["OPENAI_API_KEY"]
 
+TEXT_ENGINE = "text-davinci-003"
 
-async def generate_response(user: User, messages: list[Message]) -> str:
 
-    # Build the prompt
-    intro = [*prompt_intro(), "Penny is thinking what to say."]
-    conversation = format_messages(user, messages)
-    prompt = f"{' '.join(intro)}\n\n{conversation}\n\n<Penny>\n"
-
-    # Query the OpenAI API
+async def generate_response(prompt: str, stop: list[str]) -> str:
     completion = Completion.create(
-        engine="text-davinci-001",
+        engine=TEXT_ENGINE,
         prompt=prompt,
         max_tokens=180,
         temperature=0.9,
         presence_penalty=0.6,
-        stop=["\n<"],
+        stop=stop,
     )
-
-    response = completion.choices[0].text.strip()
+    response: str = completion.choices[0].text.strip()
     logging.debug(prompt + response)
 
     return response
 
 
-async def generate_thread_name(user: User, messages: list[Message]) -> str:
+async def generate_thread_name(prompt: str) -> str:
 
-    # Build the prompt
-    intro = [
-        *prompt_intro(channel_name=messages[0].channel.name, personality=True),
-        "Come up with a single short name for this thread.",
-    ]
-    conversation = format_messages(user, messages)
-    prompt = f"{' '.join(intro)}\n\n{conversation}\n\nThis thread should be called:"
+    prompt = f"{prompt}\n\n---\n\nCome up with a single short name for this thread:"
 
     # Query the OpenAI API
     completion = Completion.create(
-        engine="text-davinci-001",
+        engine=TEXT_ENGINE,
         prompt=prompt,
         max_tokens=15,
         temperature=0.9,
         presence_penalty=0.6,
         stop=["\n"],
     )
-
     thread_name = completion.choices[0].text.strip()
     logging.debug(prompt + thread_name)
 
@@ -79,52 +58,4 @@ async def generate_image(prompt: str) -> bytes:
             return await response.read()
 
 
-def prompt_intro(*, channel_name: Optional[str] = None, personality=False) -> list[str]:
-
-    # Discard channel name if it's the default
-    channel_name = None if channel_name == PENNY_THREAD_NAME else channel_name
-
-    # Get the current date and time in Pacific Time
-    now = datetime.now()
-    pacific_time = pytz.timezone("America/Los_Angeles")
-    formatted_datetime = now.astimezone(pacific_time).strftime(
-        "%B %d, %Y %I:%M:%S %p Pacific Time"
-    )
-
-    # Base statements
-    statements = [
-        f'The following is a conversation in a chatroom called "{channel_name}".'
-        if channel_name
-        else "The following is a conversation in a chatroom.",
-        f"The date and time is {formatted_datetime}.",
-    ]
-
-    # Append extra statements about Penny's personality
-    if personality:
-        statements.extend(
-            [
-                "Penny is a cutesy, cheerful, and helpful assistant.",
-                "Her favorite greeting is 'Salutations!'",
-            ]
-        )
-
-    return statements
-
-
-def format_messages(user: User, messages: list[Message]) -> str:
-
-    formatted_messages = []
-
-    for message in messages:
-        author = (
-            "Penny"
-            if message.author == user
-            else ANGLE_BRACKETS.sub("", message.author.display_name)
-        )
-        content = message.clean_content.strip()
-        formatted_messages.append(f"<{author}>\n{content}")
-
-    return "\n\n".join(formatted_messages)
-
-
-__all__ = ["generate_response", "generate_thread_name"]
+__all__ = ["generate_response", "generate_thread_name", "generate_image"]
