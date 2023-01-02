@@ -34,8 +34,8 @@ Requires [Python 3.10+](https://www.python.org/downloads/).
    OPENAI_ORGANIZATION = "your openai organization id"
    OPENAI_API_KEY = "your openai api key"
 
-   # Optional
-   PENNY_THREAD_NAME = "pennythread"
+   # Optional settings
+   CHAT_THREAD_NAME = "chat"
    ```
 
 3. Run the bot with `pipenv run python bot.py`.
