@@ -1,12 +1,11 @@
 import logging
 import os
-from datetime import datetime
-from io import BytesIO
 from typing import Optional
 
 import aiohttp
 import openai
 import pytz
+from dotenv import load_dotenv
 from hikari import (
     UNDEFINED,
     Attachment,
@@ -36,6 +35,8 @@ from hikari import (
     User,
 )
 from openai import Completion, Image
+
+load_dotenv()
 
 # Configure OpenAI
 openai.organization = os.environ["OPENAI_ORGANIZATION"]
