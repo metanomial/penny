@@ -1,2 +1,28 @@
 [tool.isort]
 profile = "black"
+
+[tool.poetry]
+name = "penny"
+version = "0.1.0"
+description = "Chat and image generation Discord bot."
+authors = ["Benjamin Herman <benjamin@metanomial.com>"]
+license = "MIT"
+readme = "readme.md"
+
+[tool.poetry.dependencies]
+aiohttp = "^3.8.3"
+openai = "^0.26.1"
+py-cord = "^2.3.2"
+python = "^3.10"
+python-dotenv = "^0.21.1"
+pytz = "^2022.7.1"
+
+[tool.poetry.group.dev.dependencies]
+black = "^22.12.0"
+flake8 = "^6.0.0"
+isort = "^5.11.4"
+pre-commit = "^2.21.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

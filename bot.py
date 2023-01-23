@@ -1,344 +1,162 @@
 import logging
 import os
-from datetime import datetime
-from io import BytesIO
 from typing import Optional
 
-import aiohttp
+import discord
 import openai
 import pytz
-from hikari import (
-    UNDEFINED,
-    Attachment,
-    Bytes,
-    ChannelType,
-    CommandInteraction,
-    CommandInteractionOption,
-    CommandOption,
-    DMMessageCreateEvent,
-    ForbiddenError,
-    GatewayBot,
-    Guild,
-    GuildChannel,
-    GuildThreadChannel,
-    Intents,
-    InteractionCreateEvent,
-    Message,
-    MessageCreateEvent,
-    MessageFlag,
-    MessageType,
-    OptionType,
-    OwnUser,
-    ResponseType,
-    ShardReadyEvent,
-    StartingEvent,
-    TextableChannel,
-    User,
-)
-from openai import Completion, Image
+from dotenv import load_dotenv
 
-# Configure OpenAI
+from cogs import ChatCommand, ImagineCommand
+
+load_dotenv()
+
+chat_thread_name = os.getenv("CHAT_THREAD_NAME", "chat")
+
+token = os.environ["DISCORD_TOKEN"]
+debug = os.getenv("DEBUG", "false").lower() == "true"
+
 openai.organization = os.environ["OPENAI_ORGANIZATION"]
 openai.api_key = os.environ["OPENAI_API_KEY"]
 
-TEXT_ENGINE = "text-davinci-003"
+text_model = "text-davinci-003"
 
-# Settings
-CHAT_THREAD_NAME = os.getenv("CHAT_THREAD_NAME", "chat")
-DEBUG = os.getenv("DEBUG", "false").lower() == "true"
-
-# Enable debug logging
-if DEBUG:
-    logging.basicConfig(level=logging.DEBUG)
-    logging.info("Debug mode enabled")
-
-# Create the Discord bot and command tree
-intents = Intents.ALL_UNPRIVILEGED | Intents.MESSAGE_CONTENT
-discord_token = os.environ["DISCORD_TOKEN"]
-bot = GatewayBot(token=discord_token, intents=intents)
+logging.basicConfig(level=logging.DEBUG if debug else logging.INFO)
+logger = logging.getLogger("penny")
 
 
-@bot.listen()
-async def handle_start(event: StartingEvent):
+class Penny(discord.Bot):
+    async def on_ready(self):
+        logger.info(f"Logged in as {self.user}")
 
-    application = await bot.rest.fetch_application()
+    async def on_message(self, message: discord.Message):
 
-    # Define slash commands
-    commands = [
-        bot.rest.slash_command_builder("chat", "Start a thread to chat with Penny"),
-        bot.rest.slash_command_builder(
-            "imagine", "Generate an image from a text prompt"
-        ).add_option(
-            CommandOption(
-                type=OptionType.STRING,
-                name="prompt",
-                description="The text prompt",
-                is_required=True,
+        if message.author.bot:
+            return
+
+        if message.is_system():
+            return
+
+        # Handle chat thread
+        if (
+            message.channel.type == discord.ChannelType.public_thread
+            and message.channel.owner == self.user
+        ):
+            await self.chat(message, mode="thread")
+            return
+
+        # Handle mention
+        if self.user in message.mentions:
+            await self.chat(message, mode="mention")
+            return
+
+        # Handle DM
+        if message.channel.type == discord.ChannelType.private:
+            await self.chat(message, mode="dm")
+            return
+
+    async def chat(self, message: discord.Message, mode: str):
+        if mode == "mention":
+            history = await crawl_replies(message)
+        else:
+            history = list(
+                await message.channel.history(limit=8, oldest_first=True).flatten()
             )
-        ),
-    ]
 
-    # Register slash commands
-    await bot.rest.set_application_commands(application, commands)
+        prompt, conversation = create_prompt(history, mode)
+        response = await generate_response(prompt)
+        conversation += response
 
+        if response:
+            if mode == "mention":
+                await message.reply(response)
+            else:
+                await message.channel.send(response)
 
-@bot.listen()
-async def handle_ready(event: ShardReadyEvent):
-
-    name = render_user(event.my_user)
-    logging.info(f"Salutations! Logged in as {name}")
-
-
-@bot.listen()
-async def on_interaction(event: InteractionCreateEvent):
-
-    interaction = event.interaction
-
-    # Handle slash commands
-    if isinstance(interaction, CommandInteraction):
-        await handle_command(interaction)
+        if mode == "thread" and message.channel.name == chat_thread_name:
+            await rename_thread(message, conversation)
 
 
-async def handle_command(interaction: CommandInteraction):
-
-    match interaction.command_name:
-        case "chat":
-            await handle_chat_command(interaction)
-        case "imagine":
-            await handle_imagine_command(interaction)
-
-
-async def handle_chat_command(interaction: CommandInteraction):
-
-    # Decline if the command is not invoked outside of a guild
-    if interaction.guild_id is None:
-        await interaction.create_initial_response(
-            ResponseType.MESSAGE_CREATE,
-            "Apologies, this command is only available in guilds.",
-            flags=MessageFlag.EPHEMERAL,
-        )
-        return
-
-    # Fetch the channel
-    channel = await interaction.fetch_channel()
-
-    # Decline if the channel is a thread
-    if isinstance(channel, GuildThreadChannel):
-        await interaction.create_initial_response(
-            ResponseType.MESSAGE_CREATE,
-            "Apologies, this command cannot be used in threads.",
-            flags=MessageFlag.EPHEMERAL,
-        )
-        return
-
-    # Create a thread
-    try:
-        thread = await bot.rest.create_thread(
-            channel.id,
-            ChannelType.GUILD_PUBLIC_THREAD,
-            CHAT_THREAD_NAME,
-        )
-        await thread.send(
-            f"{interaction.user.mention} Salutations! How may I be of assistance?"
-        )
-        await interaction.create_initial_response(
-            ResponseType.MESSAGE_CREATE,
-            f"Thread created: {thread.mention}",
-            flags=MessageFlag.EPHEMERAL,
-        )
-
-    # Handle permission errors
-    except ForbiddenError:
-        await interaction.create_initial_response(
-            ResponseType.MESSAGE_CREATE,
-            "Apologies, I do not have permission to create public threads in this channel.",
-            flags=MessageFlag.EPHEMERAL,
-        )
-
-    # Handle other errors
-    except Exception:
-        await interaction.create_initial_response(
-            ResponseType.MESSAGE_CREATE,
-            f"Apologies, I could not create a chat thread in this channel.",
-            flags=MessageFlag.EPHEMERAL,
-        )
-
-
-async def handle_imagine_command(interaction: CommandInteraction):
-
-    await interaction.create_initial_response(ResponseType.DEFERRED_MESSAGE_CREATE)
-
-    # Fetch the prompt
-    prompt_option = interaction.options[0]
-    assert isinstance(prompt_option, CommandInteractionOption)
-    prompt = prompt_option.value
-    assert isinstance(prompt, str)
-
-    # Query the OpenAI API
-    response = Image.create(prompt=prompt, n=1, size="1024x1024")
-    image_url = response["data"][0]["url"]
-
-    # Download the image
-    image: bytes
-    async with aiohttp.ClientSession() as session:
-        async with session.get(image_url) as response:
-            image = await response.read()
-
-    # Create an attachment
-    filename = prompt.replace(" ", "_") + ".png"
-    attachment = Bytes(image, filename, mimetype="image/png")
-
-    # Send the image
-    await interaction.edit_initial_response(
-        content=f"I'm imagining {prompt}...",
-        attachment=attachment,
-    )
-
-
-@bot.listen()
-async def on_message(event: MessageCreateEvent):
-
-    # Ignore messages from bots
-    if event.is_bot:
-        return
-
-    # Ignore non-text messages
-    message = event.message
-    if message.type != MessageType.DEFAULT:
-        return
-
-    # Get the bot user
-    bot_user = bot.get_me()
-    assert isinstance(bot_user, OwnUser)
-
-    # Fetch the channel
-    channel = await message.fetch_channel()
-    assert isinstance(channel, TextableChannel)
-
-    # Determine the conversation mode
-    if isinstance(event, DMMessageCreateEvent):
-        mode = "dm"
-    elif isinstance(channel, GuildThreadChannel) and channel.owner_id == bot_user.id:
-        mode = "thread"
-    elif bot_user.id in message.user_mentions:
-        mode = "mention"
-    else:
-        return  # Ignore messages that are not addressed to the bot
-
-    # Fetch the conversation history
-    messages: list[Message]
-    if mode == "mention":
-
-        # Start with the message that mentioned the bot
-        messages = [message]
-        head = message
-
-        # Crawl up the message chain, up to 7 messages back
-        for _ in range(7):
-            if head.referenced_message is None:
-                break
-            head = await channel.fetch_message(head.referenced_message.id)
-            if head.type != MessageType.DEFAULT:
-                break
-            messages.append(head)
-
-        # Put the messages in chronological order
-        messages.reverse()
-
-    else:
-
-        # Fetch the last 8 messages in the channel
-        messages = list(
-            await channel.fetch_history()
-            .limit(8)
-            .filter(lambda m: m.type == MessageType.DEFAULT)
-            .reversed()
-        )
-
-    # Fetch the guild
-    guild: Optional[Guild] = None
-    if isinstance(channel, GuildChannel):
-        guild = await channel.fetch_guild()
-        assert isinstance(guild, Guild)
+def create_prompt(history: list[discord.Message], mode: str) -> tuple[str, str]:
+    message = history[-1]
 
     # Build the date and time statement
     pacific_time = pytz.timezone("America/Los_Angeles")
     datetime_statement = f"The date and time is {message.created_at.astimezone(pacific_time).strftime('%B %d, %Y %I:%M:%S %p Pacific Time')}"
 
     # Build the prompt intro
-    intro: str = f"The following is a conversation "
+    intro = "The following is a conversation "
     if mode == "dm":
-        intro += f"with {render_user(message.author)}."
+        intro += f"with {message.author.display_name}."
     else:
-        intro += f"in a channel called {channel.name}."
-    if hasattr(channel, "topic"):
-        intro += f" The topic is {channel.topic}."
-    intro += f" {datetime_statement}. {render_user(bot_user, guild)} is a cutesy, cheerful, and helpful AI assistant. Her favorite greeting is 'Salutations!'"
+        intro += f"in a channel called {message.channel.name}."
+    if hasattr(message.channel, "topic") and message.channel.topic:
+        intro += f" The topic is {message.channel.topic}."
+    intro += f" {datetime_statement}. {bot.user.display_name} is a cutesy, cheerful, and helpful AI assistant."
 
-    # Format the conversation history
-    conversation = [render_message(message, guild) for message in messages]
-    conversation.append(f"<{render_user(bot_user, guild)}>\n")
+    # Build the final prompt
+    conversation = ""
+    for msg in history:
+        conversation += (
+            f"{msg.author.display_name} {msg.author.mention}:\n{msg.clean_content}\n\n"
+        )
+    conversation += f"{bot.user.display_name} {bot.user.mention}:\n"
+    prompt = f"{intro}\n\n{conversation}"
 
-    # Build the prompt
-    prompt = "\n\n".join([intro, *conversation])
+    return prompt, conversation
 
-    # Query the OpenAI API
-    completion = Completion.create(
-        engine=TEXT_ENGINE,
+
+async def generate_response(prompt: str) -> str:
+    completion = openai.Completion.create(
+        engine=text_model,
         prompt=prompt,
         max_tokens=180,
         temperature=0.9,
-        presence_penalty=0.6,
-        stop="\n<",
+        presence_penalty=1.0,
+        stop="\n\n",
     )
     response: str = completion.choices[0].text.strip()
-    logging.debug(prompt + response)
-
-    # Send the response
-    if response:
-        reply = message if mode == "mention" else UNDEFINED
-        response_message = await channel.send(response, reply=reply)
-        messages.append(response_message)
-
-    # Rename the thread
-    if isinstance(channel, GuildThreadChannel) and len(messages) > 4:
-
-        # Extend the prompt
-        prompt = (
-            f'{prompt}\n\n---\n\nCome up with a single short name for this thread: "'
-        )
-
-        # Query the OpenAI API
-        completion = Completion.create(
-            engine=TEXT_ENGINE,
-            prompt=prompt,
-            max_tokens=15,
-            temperature=0.9,
-            presence_penalty=0.6,
-            stop=["\n", '"'],
-        )
-        thread_name = completion.choices[0].text.strip()
-        logging.debug(prompt + thread_name)
-
-        # Rename the thread
-        if thread_name:
-            await bot.rest.edit_channel(channel, name=thread_name)
+    logger.debug(prompt + response)
+    return response
 
 
-def render_user(user: User, guild: Optional[Guild] = None) -> str:
+async def rename_thread(message: discord.Message, conversation: str):
+    prompt = f'The following is a conversation in a thread:\n\n{conversation}\n\n---\n\nChose a short name for this thread: "'
+    completion = openai.Completion.create(
+        engine=text_model,
+        prompt=prompt,
+        max_tokens=15,
+        temperature=0.9,
+        presence_penalty=0.6,
+        stop=["\n", '"'],
+    )
+    thread_name: Optional[str] = completion.choices[0].text.strip()
+    logger.debug(f'{prompt}{thread_name}"')
+    if thread_name:
+        await message.channel.edit(name=thread_name)
 
-    # If the guild is provided, try to get the member's display name
-    if guild:
-        member = guild.get_member(user.id)
-        if member:
-            return member.display_name
 
-    # Otherwise, return the user's username with discriminator
-    return f"{user.username}#{user.discriminator}"
+async def crawl_replies(message: discord.Message) -> list[discord.Message]:
+    replies = [message]
+    head = message
+    for _ in range(7):
+        if head.reference is None:
+            break
+        head = await message.channel.fetch_message(head.reference.message_id)
+        replies.append(head)
+    replies.reverse()
+    return replies
 
 
-def render_message(message: Message, guild: Optional[Guild] = None) -> str:
-    return f"<{render_user(message.author, guild)}>\n{message.content.strip()}"
+def format_message(message: discord.Message) -> str:
+    """Format a message for the prompt."""
+    pacific_time = pytz.timezone("America/Los_Angeles")
+    return f"[{message.created_at.astimezone(pacific_time).strftime('%H:%M:%S %d/%m/%Y')}] {message.author.display_name} {message.author.mention}:\n{message.clean_content}"
 
 
-bot.run(asyncio_debug=DEBUG)
+intents = discord.Intents.default()
+intents.message_content = True
+bot = Penny(intents=intents)
+bot.add_cog(ChatCommand(bot, chat_thread_name))
+bot.add_cog(ImagineCommand(bot))
+bot.run(token)
