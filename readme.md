@@ -6,22 +6,22 @@ Chat and image generation Discord bot.
 
 Mention the bot to start a conversation. Reply to the bot's messages to continue
 the conversation. Responses are generated using
-[OpenAI's GPT-3](https://openai.com/blog/openai-api/).
+[OpenAI's GPT-3].
 
 Alternatively, use the `/chat` command to start a dedicated conversation thread.
 You don't need to reply to the bot's messages to continue the conversation.
 
 Generate an image from a prompt with the `/imagine` command. Images are
-generated using [OpenAI's DALL-E](https://openai.com/blog/dall-e/).
+generated using [OpenAI's DALL-E].
 
 ## Setup
 
-Requires [Python 3.10+](https://www.python.org/downloads/).
+Requires [Python 3.10+] and [Poetry].
 
-1. Install dependencies with [Pipenv](https://pipenv.pypa.io/en/latest/).
+1. Install dependencies with Poetry.
 
-   ```bash
-   pipenv install
+   ```
+   poetry install
    ```
 
 2. Create a `.env` file and set the following environment variables:
@@ -38,8 +38,13 @@ Requires [Python 3.10+](https://www.python.org/downloads/).
    CHAT_THREAD_NAME = "chat"
    ```
 
-3. Run the bot with `pipenv run python bot.py`.
+3. Run the bot with `poetry run python bot.py`.
 
 ## License
 
 [MIT](license.txt)
+
+[OpenAI's GPT-3]: https://openai.com/blog/openai-api
+[OpenAI's DALL-E]: https://openai.com/blog/dall-e
+[Python 3.10+]: https://www.python.org/downloads
+[Poetry]: https://python-poetry.org

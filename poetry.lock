@@ -257,24 +257,6 @@ files = [
 ]
 
 [[package]]
-name = "colorlog"
-version = "6.7.0"
-description = "Add colours to the output of Python's logging module."
-category = "main"
-optional = false
-python-versions = ">=3.6"
-files = [
-    {file = "colorlog-6.7.0-py2.py3-none-any.whl", hash = "sha256:0d33ca236784a1ba3ff9c532d4964126d8a2c44f1f0cb1d2b0728196f512f662"},
-    {file = "colorlog-6.7.0.tar.gz", hash = "sha256:bd94bd21c1e13fac7bd3153f4bc3a7dc0eb0974b8bc2fdf1a989e474f6e582e5"},
-]
-
-[package.dependencies]
-colorama = {version = "*", markers = "sys_platform == \"win32\""}
-
-[package.extras]
-development = ["black", "flake8", "mypy", "pytest", "types-colorama"]
-
-[[package]]
 name = "distlib"
 version = "0.3.6"
 description = "Distribution utilities"
@@ -385,28 +367,6 @@ files = [
     {file = "frozenlist-1.3.3-cp39-cp39-win_amd64.whl", hash = "sha256:cfe33efc9cb900a4c46f91a5ceba26d6df370ffddd9ca386eb1d4f0ad97b9ea9"},
     {file = "frozenlist-1.3.3.tar.gz", hash = "sha256:58bcc55721e8a90b88332d6cd441261ebb22342e238296bb330968952fbb3a6a"},
 ]
-
-[[package]]
-name = "hikari"
-version = "2.0.0.dev115"
-description = "A sane Discord API for Python 3 built on asyncio and good intentions"
-category = "main"
-optional = false
-python-versions = ">=3.8.0,<3.12"
-files = [
-    {file = "hikari-2.0.0.dev115-py3-none-any.whl", hash = "sha256:12f1e88aec53fd10acc876693b9a82b33e56569dadfb34c13d7b0b504a0a444c"},
-    {file = "hikari-2.0.0.dev115.tar.gz", hash = "sha256:09165340aed16d1f9a702da50f577be0111bc8806d8486f712dfa559dcb29e4e"},
-]
-
-[package.dependencies]
-aiohttp = ">=3.8,<4.0"
-attrs = ">=22.2,<23.0"
-colorlog = ">=6.7,<7.0"
-multidict = ">=6.0,<7.0"
-
-[package.extras]
-server = ["pynacl (>=1.5,<2.0)"]
-speedups = ["aiohttp[speedups] (>=3.8,<4.0)", "ciso8601 (>=2.3,<3.0)"]
 
 [[package]]
 name = "identify"
@@ -634,6 +594,27 @@ pyyaml = ">=5.1"
 virtualenv = ">=20.10.0"
 
 [[package]]
+name = "py-cord"
+version = "2.3.2"
+description = "A Python wrapper for the Discord API"
+category = "main"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "py-cord-2.3.2.tar.gz", hash = "sha256:9fdaa9bf899c9fb724f56dea7abb975fbceee5667607880d0f5a40043c4f073d"},
+    {file = "py_cord-2.3.2-py3-none-any.whl", hash = "sha256:90dc29599812fca42f187b27e6b6e9fab88a977b782ae750b2dd742a0168bb15"},
+]
+
+[package.dependencies]
+aiohttp = ">=3.6.0,<3.9.0"
+typing-extensions = {version = ">=4,<5", markers = "python_version < \"3.11\""}
+
+[package.extras]
+docs = ["furo", "myst-parser (==0.18.1)", "sphinx (==5.3.0)", "sphinx-autodoc-typehints (==1.19.5)", "sphinx-copybutton (==0.5.1)", "sphinxcontrib-trio (==1.1.2)", "sphinxcontrib-websupport (==1.2.4)", "sphinxext-opengraph (==0.7.3)"]
+speed = ["aiohttp[speed]", "orjson (>=3.5.4)"]
+voice = ["PyNaCl (>=1.3.0,<1.6)"]
+
+[[package]]
 name = "python-dotenv"
 version = "0.21.1"
 description = "Read key-value pairs from a .env file and set them as environment variables"
@@ -783,6 +764,18 @@ slack = ["slack-sdk"]
 telegram = ["requests"]
 
 [[package]]
+name = "typing-extensions"
+version = "4.4.0"
+description = "Backported and Experimental Type Hints for Python 3.7+"
+category = "main"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "typing_extensions-4.4.0-py3-none-any.whl", hash = "sha256:16fa4864408f655d35ec496218b85f79b3437c829e93320c7c9215ccfd92489e"},
+    {file = "typing_extensions-4.4.0.tar.gz", hash = "sha256:1511434bb92bf8dd198c12b1cc812e800d4181cfcb867674e0f8279cc93087aa"},
+]
+
+[[package]]
 name = "urllib3"
 version = "1.26.14"
 description = "HTTP library with thread-safe connection pooling, file post, and more."
@@ -910,5 +903,5 @@ multidict = ">=4.0"
 
 [metadata]
 lock-version = "2.0"
-python-versions = ">=3.10,<3.12"
-content-hash = "3ec1220abad3e2568e08756f684d21ea6d1f3c98b77070181d693b69ba095a1e"
+python-versions = "^3.10"
+content-hash = "14717fd02e52a98d49dec57050d05492428f162f300490a4d0c417a89dfa2e5c"
