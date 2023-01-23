@@ -85,7 +85,7 @@ def create_prompt(history: list[discord.Message], mode: str) -> tuple[str, str]:
     datetime_statement = f"The date and time is {message.created_at.astimezone(pacific_time).strftime('%B %d, %Y %I:%M:%S %p Pacific Time')}"
 
     # Build the prompt intro
-    intro = f"The following is a conversation "
+    intro = "The following is a conversation "
     if mode == "dm":
         intro += f"with {message.author.display_name}."
     else:
