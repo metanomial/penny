@@ -112,7 +112,8 @@ async def generate_response(prompt: str) -> str:
         prompt=prompt,
         max_tokens=180,
         temperature=0.9,
-        presence_penalty=1.0,
+        frequency_penalty=0.5,
+        presence_penalty=0.8,
         stop="\n\n",
     )
     response: str = completion.choices[0].text.strip()
