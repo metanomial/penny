@@ -31,7 +31,7 @@ class Penny(discord.Bot):
 
     async def on_message(self, message: discord.Message):
 
-        if message.author.bot:
+        if message.author == bot.user:
             return
 
         if message.is_system():
